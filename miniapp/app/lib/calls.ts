@@ -25,6 +25,10 @@ export function createMintCalls(params: MintCallParams) {
     throw new Error(`Max claimable per wallet is ${entry.maxClaimable}`);
   }
 
+  // Determine the effective price: use entry.price for discounted users, condition.price for public users
+  const effectivePrice = entry ? entry.price : condition.price;
+  const pricePerToken = parseEther(effectivePrice);
+
   let allowlistProof: {
     proof: string[];
     quantityLimitPerWallet: bigint;
@@ -58,7 +62,25 @@ export function createMintCalls(params: MintCallParams) {
     };
   }
 
-  const pricePerToken = parseEther(condition.price);
+  // Validate price consistency: _pricePerToken must match allowlistProof.pricePerToken when using allowlist
+  if (entry && allowlistProof.pricePerToken !== pricePerToken) {
+    throw new Error(
+      `Price mismatch: allowlist price (${entry.price}) does not match effective price (${effectivePrice})`
+    );
+  }
+
+  // Calculate transaction value using the effective price
+  const transactionValue = pricePerToken * BigInt(quantity);
+
+  console.log('Mint call details:', {
+    userAddress: lowerAddress,
+    quantity,
+    effectivePrice,
+    pricePerToken: pricePerToken.toString(),
+    allowlistProofPrice: allowlistProof.pricePerToken.toString(),
+    transactionValue: transactionValue.toString(),
+    isDiscounted: Boolean(entry),
+  });
 
   return [
     {
@@ -78,7 +100,7 @@ export function createMintCalls(params: MintCallParams) {
         ],
         '0x' as `0x${string}`,
       ],
-      value: pricePerToken * BigInt(quantity),
+      value: transactionValue,
     },
   ];
 }
