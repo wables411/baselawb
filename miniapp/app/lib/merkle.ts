@@ -1,5 +1,5 @@
 import { MerkleTree } from 'merkletreejs';
-import { encodePacked, keccak256, parseEther } from 'viem';
+import { solidityPackedKeccak256, parseEther, keccak256 } from 'ethers';
 
 export type AllowlistEntry = {
   address: string;
@@ -12,17 +12,22 @@ let cachedAllowlist: AllowlistEntry[] | null = null;
 let cachedTree: MerkleTree | null = null;
 
 function createLeaf(entry: AllowlistEntry) {
-  const packed = encodePacked(
+  // Use ethers solidityPackedKeccak256 to match backend exactly
+  const hash = solidityPackedKeccak256(
     ['address', 'uint256', 'uint256', 'address'],
     [
-      entry.address.toLowerCase() as `0x${string}`,
+      entry.address.toLowerCase(),
       BigInt(entry.maxClaimable),
       parseEther(entry.price || '0'),
-      (entry.currencyAddress || '0x0000000000000000000000000000000000000000').toLowerCase() as `0x${string}`,
+      (entry.currencyAddress || '0x0000000000000000000000000000000000000000').toLowerCase(),
     ]
   );
-  const hash = keccak256(packed);
   return Buffer.from(hash.slice(2), 'hex');
+}
+
+// Hash function for MerkleTree - must match backend (ethers keccak256)
+function merkleHash(data: Buffer): Buffer {
+  return Buffer.from(keccak256(data).slice(2), 'hex');
 }
 
 function getTree(allowlist: AllowlistEntry[]) {
@@ -31,7 +36,8 @@ function getTree(allowlist: AllowlistEntry[]) {
   }
 
   const leaves = allowlist.map(createLeaf);
-  cachedTree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+  // Use ethers keccak256 for tree hashing to match backend
+  cachedTree = new MerkleTree(leaves, merkleHash, { sortPairs: true });
   cachedAllowlist = allowlist;
   return cachedTree;
 }
