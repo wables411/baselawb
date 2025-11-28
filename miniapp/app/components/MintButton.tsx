@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../lib/contract';
-import { generateMerkleProof } from '../lib/merkle';
+import { generateMerkleProof, AllowlistEntry } from '../lib/merkle';
 
 interface MintButtonProps {
   provider: ethers.BrowserProvider | null;
@@ -57,13 +57,23 @@ export default function MintButton({
         };
       } else {
         // Allowlist mint - generate proof
-        let allowlist: Array<{ address: string; quantity: number }> = [];
+        let allowlist: AllowlistEntry[] = [];
         if (condition.id === 1) {
           // F&F Free
-          allowlist = fandfFreeList;
+          allowlist = fandfFreeList.map(entry => ({
+            address: entry.address.toLowerCase(),
+            maxClaimable: entry.quantity,
+            price: '0',
+            currencyAddress: '0x0000000000000000000000000000000000000000',
+          }));
         } else if (condition.id === 2) {
           // F&F Discounted
-          allowlist = fandfDiscountedList;
+          allowlist = fandfDiscountedList.map(entry => ({
+            address: entry.address.toLowerCase(),
+            maxClaimable: entry.quantity,
+            price: condition.price,
+            currencyAddress: '0x0000000000000000000000000000000000000000',
+          }));
         }
 
         const entry = allowlist.find(
@@ -74,13 +84,13 @@ export default function MintButton({
           throw new Error('Address not in allowlist');
         }
 
-        const proof = generateMerkleProof(userAddress, entry.quantity, allowlist);
+        const proof = generateMerkleProof(entry, allowlist);
         
         allowlistProof = {
           proof: proof,
-          quantityLimitPerWallet: entry.quantity,
-          pricePerToken: ethers.parseEther(condition.price),
-          currency: '0x0000000000000000000000000000000000000000',
+          quantityLimitPerWallet: BigInt(entry.maxClaimable),
+          pricePerToken: ethers.parseEther(entry.price),
+          currency: entry.currencyAddress,
         };
       }
 
