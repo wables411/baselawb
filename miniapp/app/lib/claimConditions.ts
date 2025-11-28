@@ -52,22 +52,26 @@ export async function getClaimConditionForUser(
     } catch (error: any) {
       if (error?.message?.includes('429') || error?.message?.includes('rate limit')) {
         console.warn('Rate limited, using default public condition');
-        // Return default public condition
+        // Return default public condition with correct price
         return {
           id: CLAIM_CONDITION_IDS.PUBLIC,
           name: 'Public Mint',
-          price: '0.005',
-          quantityLimit: 0,
+          price: '0.005', // 0.005 ETH
+          quantityLimit: 0, // No limit
           merkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
           active: true,
         };
       }
       throw error;
     }
+    // Format price - if 0, use default 0.005 for public mint
+    const publicPrice = formatEther(publicCondition.pricePerToken as bigint);
+    const finalPublicPrice = publicPrice === '0.0' || publicPrice === '0' ? '0.005' : publicPrice;
+    
     conditions.push({
       id: CLAIM_CONDITION_IDS.PUBLIC,
       name: 'Public Mint',
-      price: formatEther(publicCondition.pricePerToken as bigint),
+      price: finalPublicPrice,
       quantityLimit: Number(publicCondition.quantityLimitPerWallet) || 0,
       merkleRoot: publicCondition.merkleRoot,
       active: Number(activeConditionId) === CLAIM_CONDITION_IDS.PUBLIC,
