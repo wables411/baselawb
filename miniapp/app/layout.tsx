@@ -5,9 +5,6 @@ import { Providers } from './providers';
 export const metadata: Metadata = {
   title: 'Base NFT Mint',
   description: 'Mint your NFT on Base',
-  icons: {
-    icon: '/favicon.ico',
-  },
 };
 
 export default function RootLayout({
