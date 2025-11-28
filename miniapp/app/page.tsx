@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ConnectWallet, TransactionButton } from '@coinbase/onchainkit';
-import { useAccount } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import '@rainbow-me/rainbowkit/styles.css';
 import ClaimStatus from './components/ClaimStatus';
+import MintTransactionButton from './components/MintTransactionButton';
 import { createMintCalls } from './lib/calls';
 import { getClaimConditionForUser } from './lib/claimConditions';
 import { createPublicClient, http } from 'viem';
@@ -28,8 +30,8 @@ export default function Home() {
   useEffect(() => {
     // Base MiniApp SDK - initialize on mount
     if (typeof window !== 'undefined') {
-      import('@farcaster/miniapp-sdk').then((sdk) => {
-        if (sdk.actions?.ready) {
+      import('@farcaster/miniapp-sdk').then((sdk: any) => {
+        if (sdk?.actions?.ready) {
           sdk.actions.ready();
         }
       }).catch(() => {
@@ -91,7 +93,7 @@ export default function Home() {
         <p className="subtitle">Mint your NFT on Base</p>
 
         <div className="wallet-section">
-          <ConnectWallet />
+          <ConnectButton />
         </div>
 
         {isConnected && address && (
@@ -125,13 +127,11 @@ export default function Home() {
                       </label>
                     </div>
 
-                    <TransactionButton
+                    <MintTransactionButton
                       calls={calls}
                       onSuccess={handleTransactionSuccess}
                       disabled={!condition || quantity <= 0 || calls.length === 0}
-                    >
-                      {`Mint ${quantity} NFT${quantity > 1 ? 's' : ''}`}
-                    </TransactionButton>
+                    />
 
                     {condition && (
                       <div className="mint-price">

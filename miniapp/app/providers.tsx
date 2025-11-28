@@ -1,11 +1,10 @@
 'use client';
 
-import { OnchainKitProvider } from '@coinbase/onchainkit';
 import { base } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
-import { coinbaseWallet } from 'wagmi/connectors';
-import { useState } from 'react';
+import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { coinbaseWallet, injected, metaMask } from 'wagmi/connectors';
 
 const queryClient = new QueryClient();
 
@@ -15,6 +14,8 @@ const config = createConfig({
     coinbaseWallet({
       appName: 'Base NFT Mint',
     }),
+    injected(),
+    metaMask(),
   ],
   transports: {
     [base.id]: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org'),
@@ -25,12 +26,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <OnchainKitProvider
-          apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY || ''}
-          chain={base}
-        >
+        <RainbowKitProvider>
           {children}
-        </OnchainKitProvider>
+        </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

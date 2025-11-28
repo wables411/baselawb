@@ -31,6 +31,12 @@ export default function ClaimStatus({
     async function loadStatus() {
       setLoading(true);
       try {
+        // Guard: ensure userAddress is not null
+        if (!userAddress) {
+          setLoading(false);
+          return;
+        }
+        
         const claimCondition = await getClaimConditionForUser(
           provider,
           userAddress,
@@ -39,7 +45,7 @@ export default function ClaimStatus({
         );
         setCondition(claimCondition);
 
-        if (claimCondition) {
+        if (claimCondition && userAddress) {
           const [claimedAmount, remainingSupply] = await Promise.all([
             getClaimedAmount(provider, userAddress, claimCondition.id),
             getRemainingSupply(provider, claimCondition.id),

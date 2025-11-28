@@ -9,16 +9,17 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@coinbase/onchainkit": "^0.5.1",
+    "@farcaster/miniapp-sdk": "^0.1.0",
+    "@rainbow-me/rainbowkit": "^2.2.9",
+    "@tanstack/react-query": "^5.0.0",
+    "ethers": "^6.9.0",
+    "merkletreejs": "^0.3.11",
     "next": "^14.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@coinbase/onchainkit": "^0.5.1",
-    "@farcaster/miniapp-sdk": "^0.1.0",
-    "@tanstack/react-query": "^5.0.0",
-    "wagmi": "^2.0.0",
     "viem": "^2.0.0",
-    "ethers": "^6.9.0",
-    "merkletreejs": "^0.3.11"
+    "wagmi": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -27,4 +28,3 @@
     "typescript": "^5.0.0"
   }
 }
-
