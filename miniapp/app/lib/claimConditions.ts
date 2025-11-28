@@ -1,5 +1,5 @@
-import { ethers } from 'ethers';
 import { CONTRACT_ADDRESS, CONTRACT_ABI, CLAIM_CONDITION_IDS } from './contract';
+import { formatEther, parseEther } from 'viem';
 
 export interface ClaimCondition {
   id: number;
@@ -14,54 +14,71 @@ export interface ClaimCondition {
  * Determine which claim condition applies to a user
  */
 export async function getClaimConditionForUser(
-  provider: ethers.Provider,
+  publicClient: any,
   userAddress: string,
   fandfFreeList: Array<{ address: string; quantity: number }>,
   fandfDiscountedList: Array<{ address: string; quantity: number }>
 ): Promise<ClaimCondition | null> {
-  const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-  
   try {
     // Get active condition ID
-    const activeConditionId = await contract.getActiveClaimConditionId();
+    const activeConditionId = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: CONTRACT_ABI,
+      functionName: 'getActiveClaimConditionId',
+    });
     
     // Check each condition
     const conditions: ClaimCondition[] = [];
     
     // Public condition (ID 0)
-    const publicCondition = await contract.getClaimConditionById(CLAIM_CONDITION_IDS.PUBLIC);
+    const publicCondition = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: CONTRACT_ABI,
+      functionName: 'getClaimConditionById',
+      args: [BigInt(CLAIM_CONDITION_IDS.PUBLIC)],
+    });
     conditions.push({
       id: CLAIM_CONDITION_IDS.PUBLIC,
       name: 'Public Mint',
-      price: ethers.formatEther(publicCondition.pricePerToken),
+      price: formatEther(publicCondition.pricePerToken as bigint),
       quantityLimit: Number(publicCondition.quantityLimitPerWallet) || 0,
       merkleRoot: publicCondition.merkleRoot,
       active: Number(activeConditionId) === CLAIM_CONDITION_IDS.PUBLIC,
     });
     
     // F&F Free condition (ID 1)
-    const fandfFreeCondition = await contract.getClaimConditionById(CLAIM_CONDITION_IDS.FANDF_FREE);
+    const fandfFreeCondition = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: CONTRACT_ABI,
+      functionName: 'getClaimConditionById',
+      args: [BigInt(CLAIM_CONDITION_IDS.FANDF_FREE)],
+    });
     const isInFandfFree = fandfFreeList.some(
       e => e.address.toLowerCase() === userAddress.toLowerCase()
     );
     conditions.push({
       id: CLAIM_CONDITION_IDS.FANDF_FREE,
       name: 'F&F Free',
-      price: ethers.formatEther(fandfFreeCondition.pricePerToken),
+      price: formatEther(fandfFreeCondition.pricePerToken as bigint),
       quantityLimit: Number(fandfFreeCondition.quantityLimitPerWallet),
       merkleRoot: fandfFreeCondition.merkleRoot,
       active: isInFandfFree && Number(activeConditionId) === CLAIM_CONDITION_IDS.FANDF_FREE,
     });
     
     // F&F Discounted condition (ID 2)
-    const fandfDiscountedCondition = await contract.getClaimConditionById(CLAIM_CONDITION_IDS.FANDF_DISCOUNTED);
+    const fandfDiscountedCondition = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: CONTRACT_ABI,
+      functionName: 'getClaimConditionById',
+      args: [BigInt(CLAIM_CONDITION_IDS.FANDF_DISCOUNTED)],
+    });
     const isInFandfDiscounted = fandfDiscountedList.some(
       e => e.address.toLowerCase() === userAddress.toLowerCase()
     );
     conditions.push({
       id: CLAIM_CONDITION_IDS.FANDF_DISCOUNTED,
       name: 'F&F Discounted',
-      price: ethers.formatEther(fandfDiscountedCondition.pricePerToken),
+      price: formatEther(fandfDiscountedCondition.pricePerToken as bigint),
       quantityLimit: Number(fandfDiscountedCondition.quantityLimitPerWallet),
       merkleRoot: fandfDiscountedCondition.merkleRoot,
       active: isInFandfDiscounted && Number(activeConditionId) === CLAIM_CONDITION_IDS.FANDF_DISCOUNTED,
@@ -86,13 +103,16 @@ export async function getClaimConditionForUser(
  * Get remaining supply for a condition
  */
 export async function getRemainingSupply(
-  provider: ethers.Provider,
+  publicClient: any,
   conditionId: number
 ): Promise<number> {
-  const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-  
   try {
-    const condition = await contract.getClaimConditionById(conditionId);
+    const condition = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: CONTRACT_ABI,
+      functionName: 'getClaimConditionById',
+      args: [BigInt(conditionId)],
+    });
     const maxClaimable = Number(condition.maxClaimableSupply);
     const supplyClaimed = Number(condition.supplyClaimed);
     return Math.max(0, maxClaimable - supplyClaimed);
@@ -106,14 +126,17 @@ export async function getRemainingSupply(
  * Get amount already claimed by user for a condition
  */
 export async function getClaimedAmount(
-  provider: ethers.Provider,
+  publicClient: any,
   userAddress: string,
   conditionId: number
 ): Promise<number> {
-  const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-  
   try {
-    const claimed = await contract.getSupplyClaimedByWallet(conditionId, userAddress);
+    const claimed = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: CONTRACT_ABI,
+      functionName: 'getSupplyClaimedByWallet',
+      args: [BigInt(conditionId), userAddress as `0x${string}`],
+    });
     return Number(claimed);
   } catch (error) {
     console.error('Error getting claimed amount:', error);

@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ethers } from 'ethers';
 import { getClaimConditionForUser, getClaimedAmount, getRemainingSupply } from '../lib/claimConditions';
 import { CLAIM_CONDITION_IDS } from '../lib/contract';
 
 interface ClaimStatusProps {
-  provider: ethers.Provider | null;
+  provider: any;
   userAddress: string | null;
   fandfFreeList: Array<{ address: string; quantity: number }>;
   fandfDiscountedList: Array<{ address: string; quantity: number }>;

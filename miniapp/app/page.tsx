@@ -1,27 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
-import WalletConnect from './components/WalletConnect';
+import { ConnectWallet, TransactionButton } from '@coinbase/onchainkit';
+import { useAccount } from 'wagmi';
 import ClaimStatus from './components/ClaimStatus';
-import MintButton from './components/MintButton';
+import { createMintCalls } from './lib/calls';
+import { getClaimConditionForUser } from './lib/claimConditions';
+import { createPublicClient, http } from 'viem';
+import { base } from 'wagmi/chains';
 
 export default function Home() {
-  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
-  const [userAddress, setUserAddress] = useState<string | null>(null);
+  const { address, isConnected } = useAccount();
   const [quantity, setQuantity] = useState<number>(1);
   const [condition, setCondition] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   
   // Allowlists - in production, load from API/IPFS
   const [fandfFreeList, setFandfFreeList] = useState<Array<{ address: string; quantity: number }>>([]);
   const [fandfDiscountedList, setFandfDiscountedList] = useState<Array<{ address: string; quantity: number }>>([]);
 
+  // Create public client for reading contract state
+  const publicClient = createPublicClient({
+    chain: base,
+    transport: http(),
+  });
+
   useEffect(() => {
     // Base MiniApp SDK - initialize on mount
     if (typeof window !== 'undefined') {
-      // Dynamically import the SDK
       import('@farcaster/miniapp-sdk').then((sdk) => {
-        // Signal that the MiniApp is ready
         if (sdk.actions?.ready) {
           sdk.actions.ready();
         }
@@ -31,40 +38,51 @@ export default function Home() {
     }
     
     // Load allowlists (in production, fetch from API)
-    // For now, leave empty - proofs should be generated server-side
     setFandfFreeList([]);
     setFandfDiscountedList([]);
   }, []);
 
-  function handleWalletConnect(address: string, prov: ethers.BrowserProvider) {
-    setUserAddress(address);
-    setProvider(prov);
-    
-    // Load claim condition for user
-    loadClaimCondition(prov, address);
-  }
+  useEffect(() => {
+    // Load claim condition when wallet connects
+    if (isConnected && address) {
+      loadClaimCondition(address);
+    }
+  }, [isConnected, address]);
 
-  async function loadClaimCondition(prov: ethers.Provider, address: string) {
+  async function loadClaimCondition(userAddress: string) {
+    setLoading(true);
     try {
-      const { getClaimConditionForUser } = await import('./lib/claimConditions');
       const claimCondition = await getClaimConditionForUser(
-        prov,
-        address,
+        publicClient as any,
+        userAddress,
         fandfFreeList,
         fandfDiscountedList
       );
       setCondition(claimCondition);
     } catch (error) {
       console.error('Error loading claim condition:', error);
+    } finally {
+      setLoading(false);
     }
   }
 
-  function handleMintSuccess() {
+  function handleTransactionSuccess() {
     // Reload claim condition after successful mint
-    if (provider && userAddress) {
-      loadClaimCondition(provider, userAddress);
+    if (address) {
+      loadClaimCondition(address);
     }
   }
+
+  // Prepare transaction calls for OnchainKit
+  const calls = condition && address ? createMintCalls({
+    userAddress: address,
+    quantity,
+    condition,
+    fandfFreeList,
+    fandfDiscountedList,
+  }) : [];
+
+  const totalPrice = condition ? parseFloat(condition.price) * quantity : 0;
 
   return (
     <main className="miniapp-container">
@@ -73,49 +91,61 @@ export default function Home() {
         <p className="subtitle">Mint your NFT on Base</p>
 
         <div className="wallet-section">
-          <WalletConnect onConnect={handleWalletConnect} />
+          <ConnectWallet />
         </div>
 
-        {userAddress && provider && (
+        {isConnected && address && (
           <>
-            <div className="claim-status-section">
-              <ClaimStatus
-                provider={provider}
-                userAddress={userAddress}
-                fandfFreeList={fandfFreeList}
-                fandfDiscountedList={fandfDiscountedList}
-              />
-            </div>
-
-            <div className="mint-section">
-              <div className="quantity-selector">
-                <label>
-                  Quantity:
-                  <input
-                    type="number"
-                    min="1"
-                    max={condition?.quantityLimit === 0 ? 10 : condition?.quantityLimit || 1}
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                    className="quantity-input"
+            {loading ? (
+              <div className="loading">Loading claim status...</div>
+            ) : (
+              <>
+                <div className="claim-status-section">
+                  <ClaimStatus
+                    provider={publicClient as any}
+                    userAddress={address}
+                    fandfFreeList={fandfFreeList}
+                    fandfDiscountedList={fandfDiscountedList}
                   />
-                </label>
-              </div>
+                </div>
 
-              <MintButton
-                provider={provider}
-                userAddress={userAddress}
-                condition={condition}
-                quantity={quantity}
-                onMintSuccess={handleMintSuccess}
-                fandfFreeList={fandfFreeList}
-                fandfDiscountedList={fandfDiscountedList}
-              />
-            </div>
+                {condition && (
+                  <div className="mint-section">
+                    <div className="quantity-selector">
+                      <label>
+                        Quantity:
+                        <input
+                          type="number"
+                          min="1"
+                          max={condition.quantityLimit === 0 ? 10 : condition.quantityLimit || 1}
+                          value={quantity}
+                          onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                          className="quantity-input"
+                        />
+                      </label>
+                    </div>
+
+                    <TransactionButton
+                      calls={calls}
+                      onSuccess={handleTransactionSuccess}
+                      disabled={!condition || quantity <= 0 || calls.length === 0}
+                    >
+                      {`Mint ${quantity} NFT${quantity > 1 ? 's' : ''}`}
+                    </TransactionButton>
+
+                    {condition && (
+                      <div className="mint-price">
+                        Total: {totalPrice.toFixed(6)} ETH
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
 
-        {!userAddress && (
+        {!isConnected && (
           <div className="connect-prompt">
             <p>Connect your wallet to start minting</p>
           </div>
@@ -175,6 +205,20 @@ export default function Home() {
           width: 80px;
         }
 
+        .mint-price {
+          text-align: center;
+          font-size: 1.1rem;
+          font-weight: bold;
+          color: #333;
+          margin-top: 0.5rem;
+        }
+
+        .loading {
+          text-align: center;
+          padding: 2rem;
+          color: #666;
+        }
+
         .connect-prompt {
           text-align: center;
           color: #666;
@@ -184,4 +228,3 @@ export default function Home() {
     </main>
   );
 }
-

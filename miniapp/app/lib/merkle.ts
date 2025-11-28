@@ -1,5 +1,6 @@
 import { MerkleTree } from 'merkletreejs';
-import { keccak256, solidityPackedKeccak256 } from 'ethers';
+import { keccak256 } from 'viem';
+import { encodePacked } from 'viem';
 
 // Allowlist data - in production, this would be loaded from an API or IPFS
 // For now, we'll generate proofs on-demand from the allowlist files
@@ -30,10 +31,11 @@ export function generateMerkleProof(
   
   // Create leaves
   const leaves = allowlist.map(entry => {
-    const hash = solidityPackedKeccak256(
+    const packed = encodePacked(
       ['address', 'uint256'],
-      [entry.address.toLowerCase(), entry.quantity]
+      [entry.address.toLowerCase() as `0x${string}`, BigInt(entry.quantity)]
     );
+    const hash = keccak256(packed as `0x${string}`);
     return Buffer.from(hash.slice(2), 'hex');
   });
   
@@ -46,10 +48,11 @@ export function generateMerkleProof(
     throw new Error('Address not in allowlist');
   }
   
-  const leafHash = solidityPackedKeccak256(
+  const packed = encodePacked(
     ['address', 'uint256'],
-    [normalizedAddress, entry.quantity]
+    [normalizedAddress as `0x${string}`, BigInt(entry.quantity)]
   );
+  const leafHash = keccak256(packed as `0x${string}`);
   const leaf = Buffer.from(leafHash.slice(2), 'hex');
   
   // Get proof
