@@ -18,7 +18,10 @@ const config = createConfig({
     metaMask(),
   ],
   transports: {
-    [base.id]: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://base-mainnet.g.alchemy.com/v2/Cl7CPlDrGwgzhkxLjPwTU'),
+    [base.id]: http(
+      process.env.NEXT_PUBLIC_BASE_RPC_URL ||
+        'https://mainnet.base.org'
+    ),
   },
 });
 

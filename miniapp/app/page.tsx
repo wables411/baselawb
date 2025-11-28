@@ -22,8 +22,8 @@ export default function Home() {
   const [fandfDiscountedList, setFandfDiscountedList] = useState<Array<{ address: string; quantity: number }>>([]);
 
   // Create public client for reading contract state
-  // Use environment variable RPC URL or fallback to Alchemy
-  const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://base-mainnet.g.alchemy.com/v2/Cl7CPlDrGwgzhkxLjPwTU';
+  // Use environment variable RPC URL or fallback to public Base RPC (rate limited)
+  const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
   const publicClient = createPublicClient({
     chain: base,
     transport: http(rpcUrl, {
