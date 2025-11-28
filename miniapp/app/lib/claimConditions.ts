@@ -1,4 +1,4 @@
-import { CONTRACT_ADDRESS, CONTRACT_ABI, CLAIM_CONDITION_IDS } from './contract';
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from './contract';
 import { formatEther } from 'viem';
 import type { AllowlistEntry } from './merkle';
 
@@ -31,7 +31,7 @@ export async function getClaimConditionForUser(
       address: CONTRACT_ADDRESS as `0x${string}`,
       abi: CONTRACT_ABI,
       functionName: 'getClaimConditionById',
-      args: [BigInt(CLAIM_CONDITION_IDS.PUBLIC)],
+      args: [activeConditionId],
     });
     const publicPrice = formatEther(publicCondition.pricePerToken as bigint);
     
