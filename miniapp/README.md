@@ -22,6 +22,7 @@ npm install
 ```env
 NEXT_PUBLIC_CONTRACT_ADDRESS=0x13c33121f8a73e22ac6aa4a135132f5ac7f221b2
 NEXT_PUBLIC_BASE_RPC_URL=https://mainnet.base.org
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
 ```
 
 **Important:** The public Base RPC (`https://mainnet.base.org`) has rate limits. For production, use a dedicated RPC provider:
@@ -34,6 +35,8 @@ Example with Alchemy:
 ```env
 NEXT_PUBLIC_BASE_RPC_URL=https://base-mainnet.g.alchemy.com/v2/YOUR_API_KEY
 ```
+
+**Wallet connections:** RainbowKit uses WalletConnect under the hood. Create a free project at [WalletConnect Cloud](https://cloud.walletconnect.com), copy the project ID, and set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` accordingly. Without it, the build will fail.
 
 3. Run development server:
 ```bash
@@ -61,6 +64,7 @@ npm start
 3. Add environment variables in Netlify dashboard:
    - `NEXT_PUBLIC_CONTRACT_ADDRESS`: Your contract address
    - `NEXT_PUBLIC_BASE_RPC_URL`: Base RPC endpoint (use a dedicated provider to avoid rate limits)
+   - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`: WalletConnect Cloud project ID
 
 4. Deploy!
 
