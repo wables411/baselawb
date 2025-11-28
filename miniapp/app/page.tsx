@@ -10,15 +10,19 @@ import { createMintCalls } from './lib/calls';
 import { getClaimConditionForUser } from './lib/claimConditions';
 import { createPublicClient, http } from 'viem';
 import { base } from 'wagmi/chains';
+import discountedAllowlist from './lib/discountedAllowlist.json';
 
 export default function Home() {
   const { address, isConnected } = useAccount();
   const [quantity, setQuantity] = useState<number>(1);
   const [condition, setCondition] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  
-  // Allowlist - in production, load from API/IPFS
-  const [discountedList, setDiscountedList] = useState<Array<{ address: string; quantity: number }>>([]);
+  const discountedList = discountedAllowlist as Array<{
+    address: string;
+    maxClaimable: number;
+    price: string;
+    currencyAddress: string;
+  }>;
 
   // Create public client for reading contract state
   // Use environment variable RPC URL or fallback to public Base RPC (rate limited)
@@ -42,9 +46,6 @@ export default function Home() {
         console.log('MiniApp SDK not available (running outside Farcaster)');
       });
     }
-    
-    // Load allowlist (in production, fetch from API)
-    setDiscountedList([]);
   }, []);
 
   useEffect(() => {

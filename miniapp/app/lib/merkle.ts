@@ -1,80 +1,57 @@
 import { MerkleTree } from 'merkletreejs';
-import { keccak256 } from 'viem';
-import { encodePacked } from 'viem';
+import { encodePacked, keccak256, parseEther } from 'viem';
 
-// Allowlist data - in production, this would be loaded from an API or IPFS
-// For now, we'll generate proofs on-demand from the allowlist files
-let fandfFreeAllowlist: Map<string, number> | null = null;
-let fandfDiscountedAllowlist: Map<string, number> | null = null;
+export type AllowlistEntry = {
+  address: string;
+  maxClaimable: number;
+  price: string;
+  currencyAddress: string;
+};
 
-/**
- * Load allowlist data (in production, fetch from API/IPFS)
- */
-export async function loadAllowlists() {
-  // In a real app, you'd fetch these from your backend or IPFS
-  // For now, return empty - proofs should be generated server-side
-  return {
-    fandfFree: new Map<string, number>(),
-    fandfDiscounted: new Map<string, number>(),
-  };
+let cachedAllowlist: AllowlistEntry[] | null = null;
+let cachedTree: MerkleTree | null = null;
+
+function createLeaf(entry: AllowlistEntry) {
+  const packed = encodePacked(
+    ['address', 'uint256', 'uint256', 'address'],
+    [
+      entry.address.toLowerCase() as `0x${string}`,
+      BigInt(entry.maxClaimable),
+      parseEther(entry.price || '0'),
+      (entry.currencyAddress || '0x0000000000000000000000000000000000000000').toLowerCase() as `0x${string}`,
+    ]
+  );
+  const hash = keccak256(packed);
+  return Buffer.from(hash.slice(2), 'hex');
+}
+
+function getTree(allowlist: AllowlistEntry[]) {
+  if (cachedTree && cachedAllowlist === allowlist) {
+    return cachedTree;
+  }
+
+  const leaves = allowlist.map(createLeaf);
+  cachedTree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+  cachedAllowlist = allowlist;
+  return cachedTree;
 }
 
 /**
- * Generate merkle proof for an address
+ * Generate merkle proof for an allowlist entry with price overrides.
  */
 export function generateMerkleProof(
-  address: string,
-  quantity: number,
-  allowlist: Array<{ address: string; quantity: number }>
+  entry: AllowlistEntry,
+  allowlist: AllowlistEntry[]
 ): string[] {
-  const normalizedAddress = address.toLowerCase();
-  
-  // Create leaves
-  const leaves = allowlist.map(entry => {
-    const packed = encodePacked(
-      ['address', 'uint256'],
-      [entry.address.toLowerCase() as `0x${string}`, BigInt(entry.quantity)]
-    );
-    const hash = keccak256(packed as `0x${string}`);
-    return Buffer.from(hash.slice(2), 'hex');
-  });
-  
-  // Create tree
-  const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
-  
-  // Find the leaf for this address
-  const entry = allowlist.find(e => e.address.toLowerCase() === normalizedAddress);
   if (!entry) {
-    throw new Error('Address not in allowlist');
+    throw new Error('Allowlist entry is required to generate a proof');
   }
-  
-  const packed = encodePacked(
-    ['address', 'uint256'],
-    [normalizedAddress as `0x${string}`, BigInt(entry.quantity)]
-  );
-  const leafHash = keccak256(packed as `0x${string}`);
-  const leaf = Buffer.from(leafHash.slice(2), 'hex');
-  
-  // Get proof
-  const proof = tree.getHexProof(leaf);
-  return proof;
-}
+  if (!allowlist || allowlist.length === 0) {
+    throw new Error('Allowlist data is empty');
+  }
 
-/**
- * Verify if address is in allowlist (client-side check)
- * Note: Actual verification happens on-chain
- */
-export function isInAllowlist(
-  address: string,
-  allowlist: Array<{ address: string; quantity: number }>
-): { inList: boolean; quantity: number } {
-  const normalizedAddress = address.toLowerCase();
-  const entry = allowlist.find(e => e.address.toLowerCase() === normalizedAddress);
-  
-  if (entry) {
-    return { inList: true, quantity: entry.quantity };
-  }
-  
-  return { inList: false, quantity: 0 };
+  const tree = getTree(allowlist);
+  const leaf = createLeaf(entry);
+  return tree.getHexProof(leaf);
 }
 

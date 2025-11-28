@@ -1,5 +1,6 @@
 import { CONTRACT_ADDRESS, CONTRACT_ABI, CLAIM_CONDITION_IDS } from './contract';
 import { formatEther } from 'viem';
+import type { AllowlistEntry } from './merkle';
 
 export interface ClaimCondition {
   id: number;
@@ -8,6 +9,7 @@ export interface ClaimCondition {
   quantityLimit: number;
   merkleRoot: string;
   active: boolean;
+  isDiscounted?: boolean;
 }
 
 /**
@@ -16,79 +18,41 @@ export interface ClaimCondition {
 export async function getClaimConditionForUser(
   publicClient: any,
   userAddress: string,
-  discountedList: Array<{ address: string; quantity: number }>
+  discountedList: AllowlistEntry[]
 ): Promise<ClaimCondition | null> {
   try {
-    // Get active condition ID with retry logic for rate limits
-    let activeConditionId;
-    try {
-      activeConditionId = await publicClient.readContract({
-        address: CONTRACT_ADDRESS as `0x${string}`,
-        abi: CONTRACT_ABI,
-        functionName: 'getActiveClaimConditionId',
-      });
-    } catch (error: any) {
-      console.error('Error fetching active claim condition ID', error);
-      throw error;
-    }
+    const activeConditionId = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: CONTRACT_ABI,
+      functionName: 'getActiveClaimConditionId',
+    });
     
-    // Check each condition
-    const conditions: ClaimCondition[] = [];
-    
-    // Public condition (ID 0) - with error handling
-    let publicCondition;
-    try {
-      publicCondition = await publicClient.readContract({
-        address: CONTRACT_ADDRESS as `0x${string}`,
-        abi: CONTRACT_ABI,
-        functionName: 'getClaimConditionById',
-        args: [BigInt(CLAIM_CONDITION_IDS.PUBLIC)],
-      });
-    } catch (error: any) {
-      console.error('Error fetching public claim condition', error);
-      throw error;
-    }
+    const publicCondition = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: CONTRACT_ABI,
+      functionName: 'getClaimConditionById',
+      args: [BigInt(CLAIM_CONDITION_IDS.PUBLIC)],
+    });
     const publicPrice = formatEther(publicCondition.pricePerToken as bigint);
     
-    conditions.push({
-      id: CLAIM_CONDITION_IDS.PUBLIC,
-      name: 'Public Mint',
-      price: publicPrice,
-      quantityLimit: Number(publicCondition.quantityLimitPerWallet) || 0,
-      merkleRoot: publicCondition.merkleRoot,
-      active: Number(activeConditionId) === CLAIM_CONDITION_IDS.PUBLIC,
-    });
-    
-    // Discounted condition (ID 2)
-    let discountedCondition;
-    try {
-      discountedCondition = await publicClient.readContract({
-        address: CONTRACT_ADDRESS as `0x${string}`,
-        abi: CONTRACT_ABI,
-        functionName: 'getClaimConditionById',
-        args: [BigInt(CLAIM_CONDITION_IDS.DISCOUNTED)],
-      });
-    } catch (error: any) {
-      console.error('Error fetching discounted claim condition', error);
-      throw error;
-    }
-    const isInDiscounted = discountedList.some(
-      e => e.address.toLowerCase() === userAddress.toLowerCase()
+    const discountedEntry = discountedList.find(
+      entry => entry.address.toLowerCase() === userAddress.toLowerCase()
     );
-    conditions.push({
-      id: CLAIM_CONDITION_IDS.DISCOUNTED,
-      name: 'Discounted',
-      price: formatEther(discountedCondition.pricePerToken as bigint),
-      quantityLimit: Number(discountedCondition.quantityLimitPerWallet),
-      merkleRoot: discountedCondition.merkleRoot,
-      active: isInDiscounted && Number(activeConditionId) === CLAIM_CONDITION_IDS.DISCOUNTED,
-    });
     
-    // Prefer discounted condition when eligible, otherwise fall back to public
-    if (isInDiscounted) {
-      return conditions.find(c => c.id === CLAIM_CONDITION_IDS.DISCOUNTED) || conditions[0];
-    }
-    return conditions[0];
+    const effectivePrice = discountedEntry ? discountedEntry.price : publicPrice;
+    const quantityLimit = discountedEntry
+      ? discountedEntry.maxClaimable
+      : Number(publicCondition.quantityLimitPerWallet) || 0;
+    
+    return {
+      id: Number(activeConditionId),
+      name: discountedEntry ? 'Discounted' : 'Public Mint',
+      price: effectivePrice,
+      quantityLimit,
+      merkleRoot: publicCondition.merkleRoot,
+      active: true,
+      isDiscounted: Boolean(discountedEntry),
+    };
     
   } catch (error) {
     console.error('Error getting claim condition:', error);

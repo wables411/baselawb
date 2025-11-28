@@ -1,8 +1,7 @@
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import { MerkleTree } from 'merkletreejs';
-import { keccak256, solidityPackedKeccak256 } from 'ethers';
+import { generateMerkleTree } from './generate-merkle-tree.js';
 
 dotenv.config();
 
@@ -117,94 +116,50 @@ async function updateClaimConditions() {
     maxSupply = BigInt(process.env.DEFAULT_MAX_SUPPLY || 10000);
   }
   
-  // Generate merkle trees for allowlists
-  console.log('🌳 Generating merkle trees...\n');
+  // Generate merkle tree for snapshot (public + discounted)
+  console.log('🌳 Generating snapshot merkle tree...\n');
   
-  let fandfDiscountedRoot = '0x0000000000000000000000000000000000000000000000000000000000000000';
+  const snapshotPath = process.env.SNAPSHOT_PATH || 'snapshots/public-discounted.csv';
+  let snapshotRoot = '0x0000000000000000000000000000000000000000000000000000000000000000';
+  let snapshotCount = 0;
   
-  // Helper function to generate merkle tree
-  function generateMerkleTree(filePath) {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const lines = content.split('\n').filter(line => line.trim());
-    
-    const entries = [];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      
-      const [address, maxClaimable] = line.split(',').map(s => s.trim());
-      if (!address || !address.startsWith('0x')) continue;
-      
-      const quantity = maxClaimable ? parseInt(maxClaimable, 10) : 1;
-      entries.push({ address: address.toLowerCase(), quantity: isNaN(quantity) ? 1 : quantity });
-    }
-    
-    const leaves = entries.map(entry => {
-      const hash = solidityPackedKeccak256(
-        ['address', 'uint256'],
-        [entry.address, entry.quantity]
-      );
-      return Buffer.from(hash.slice(2), 'hex');
-    });
-    
-    const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
-    const root = '0x' + tree.getRoot().toString('hex');
-    
-    return { root, entries };
-  }
-  
-  // F&F Discounted allowlist
-  const fandfDiscountedPath = process.env.FANDF_DISCOUNTED_PATH || 'FandFDinscount.csv';
-  if (fs.existsSync(fandfDiscountedPath)) {
+  if (fs.existsSync(snapshotPath)) {
     try {
-      const merkleData = generateMerkleTree(fandfDiscountedPath);
-      fandfDiscountedRoot = merkleData.root;
-      console.log(`✅ Discounted merkle root: ${fandfDiscountedRoot} (${merkleData.entries.length} addresses)\n`);
+      const merkleData = generateMerkleTree(snapshotPath);
+      snapshotRoot = merkleData.root;
+      snapshotCount = merkleData.entries.length;
+      console.log(`✅ Snapshot merkle root: ${snapshotRoot} (${snapshotCount} addresses)\n`);
     } catch (error) {
-      console.error(`❌ Error generating Discounted merkle tree:`, error.message);
+      console.error(`❌ Error generating snapshot merkle tree:`, error.message);
       process.exit(1);
     }
   } else {
-    console.warn(`⚠️  Discounted file not found: ${fandfDiscountedPath}\n`);
+    console.warn(`⚠️  Snapshot file not found: ${snapshotPath}\n`);
   }
   
-  // Create claim conditions
-  // Order: Public first, then discounted allowlist
+  // Create single claim condition (public price, discounted overrides)
   const now = Math.floor(Date.now() / 1000);
   const startTime = now; // Start immediately
-  const discountStartTime = startTime + 60; // offset to satisfy ordering
   
   const conditions = [
-    // 1. Public mint: 0.005 ETH, no limit
+    // Public mint with discounted overrides: 0.005 ETH default, overrides handled via allowlist proof
     createClaimCondition({
       startTimestamp: startTime,
       maxClaimableSupply: maxSupply.toString(),
-      quantityLimitPerWallet: 0, // 0 = no limit
-      merkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000', // No allowlist
+      quantityLimitPerWallet: 0, // 0 = no limit (overrides handled by allowlist proof)
+      merkleRoot: snapshotRoot,
       pricePerToken: '0.005',
       currency: ZERO_ADDRESS, // ETH
-      metadata: 'Public Mint'
-    }),
-    
-    // 2. Discounted: 0.002 ETH, limit 15 per wallet
-    createClaimCondition({
-      startTimestamp: discountStartTime,
-      maxClaimableSupply: maxSupply.toString(),
-      quantityLimitPerWallet: 15,
-      merkleRoot: fandfDiscountedRoot,
-      pricePerToken: '0.002',
-      currency: ZERO_ADDRESS,
-      metadata: 'Discounted'
+      metadata: snapshotRoot === ZERO_ADDRESS ? 'Public Mint' : 'Public Mint + Discounted'
     })
   ];
   
   console.log('📋 Claim Conditions to Set:');
   conditions.forEach((condition, index) => {
-    const names = ['Public', 'Discounted'];
-    console.log(`\n   ${index + 1}. ${names[index] || `Condition ${index + 1}`}:`);
+    console.log(`\n   ${index + 1}. Condition ${index + 1}:`);
     console.log(`      Price: ${ethers.formatEther(condition.pricePerToken)} ETH`);
     console.log(`      Quantity Limit: ${condition.quantityLimitPerWallet.toString() === '0' ? 'No limit' : condition.quantityLimitPerWallet.toString()}`);
-    console.log(`      Merkle Root: ${condition.merkleRoot === '0x0000000000000000000000000000000000000000000000000000000000000000' ? 'None (Public)' : condition.merkleRoot}`);
+    console.log(`      Merkle Root: ${condition.merkleRoot === ZERO_ADDRESS ? 'None (Public)' : condition.merkleRoot}`);
     console.log(`      Max Claimable: ${condition.maxClaimableSupply.toString()}`);
   });
   
