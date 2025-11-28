@@ -24058,5 +24058,11 @@
     "maxClaimable": 15,
     "price": "0.002",
     "currencyAddress": "0x0000000000000000000000000000000000000000"
+  },
+  {
+    "address": "0x39afc27d2540cd6063266d779cecb73be65b4bc9",
+    "maxClaimable": 15,
+    "price": "0.002",
+    "currencyAddress": "0x0000000000000000000000000000000000000000"
   }
 ]
