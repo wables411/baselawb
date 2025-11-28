@@ -20,23 +20,50 @@ export async function getClaimConditionForUser(
   fandfDiscountedList: Array<{ address: string; quantity: number }>
 ): Promise<ClaimCondition | null> {
   try {
-    // Get active condition ID
-    const activeConditionId = await publicClient.readContract({
-      address: CONTRACT_ADDRESS as `0x${string}`,
-      abi: CONTRACT_ABI,
-      functionName: 'getActiveClaimConditionId',
-    });
+    // Get active condition ID with retry logic for rate limits
+    let activeConditionId;
+    try {
+      activeConditionId = await publicClient.readContract({
+        address: CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI,
+        functionName: 'getActiveClaimConditionId',
+      });
+    } catch (error: any) {
+      if (error?.message?.includes('429') || error?.message?.includes('rate limit')) {
+        console.warn('Rate limited by RPC, using default condition ID 0');
+        activeConditionId = 0n; // Default to public condition
+      } else {
+        throw error;
+      }
+    }
     
     // Check each condition
     const conditions: ClaimCondition[] = [];
     
-    // Public condition (ID 0)
-    const publicCondition = await publicClient.readContract({
-      address: CONTRACT_ADDRESS as `0x${string}`,
-      abi: CONTRACT_ABI,
-      functionName: 'getClaimConditionById',
-      args: [BigInt(CLAIM_CONDITION_IDS.PUBLIC)],
-    });
+    // Public condition (ID 0) - with error handling
+    let publicCondition;
+    try {
+      publicCondition = await publicClient.readContract({
+        address: CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI,
+        functionName: 'getClaimConditionById',
+        args: [BigInt(CLAIM_CONDITION_IDS.PUBLIC)],
+      });
+    } catch (error: any) {
+      if (error?.message?.includes('429') || error?.message?.includes('rate limit')) {
+        console.warn('Rate limited, using default public condition');
+        // Return default public condition
+        return {
+          id: CLAIM_CONDITION_IDS.PUBLIC,
+          name: 'Public Mint',
+          price: '0.005',
+          quantityLimit: 0,
+          merkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          active: true,
+        };
+      }
+      throw error;
+    }
     conditions.push({
       id: CLAIM_CONDITION_IDS.PUBLIC,
       name: 'Public Mint',
@@ -46,13 +73,23 @@ export async function getClaimConditionForUser(
       active: Number(activeConditionId) === CLAIM_CONDITION_IDS.PUBLIC,
     });
     
-    // F&F Free condition (ID 1)
-    const fandfFreeCondition = await publicClient.readContract({
-      address: CONTRACT_ADDRESS as `0x${string}`,
-      abi: CONTRACT_ABI,
-      functionName: 'getClaimConditionById',
-      args: [BigInt(CLAIM_CONDITION_IDS.FANDF_FREE)],
-    });
+    // F&F Free condition (ID 1) - with error handling
+    let fandfFreeCondition;
+    try {
+      fandfFreeCondition = await publicClient.readContract({
+        address: CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI,
+        functionName: 'getClaimConditionById',
+        args: [BigInt(CLAIM_CONDITION_IDS.FANDF_FREE)],
+      });
+    } catch (error: any) {
+      if (error?.message?.includes('429') || error?.message?.includes('rate limit')) {
+        console.warn('Rate limited, skipping F&F Free condition check');
+        fandfFreeCondition = { pricePerToken: 0n, quantityLimitPerWallet: 1n, merkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000' };
+      } else {
+        throw error;
+      }
+    }
     const isInFandfFree = fandfFreeList.some(
       e => e.address.toLowerCase() === userAddress.toLowerCase()
     );
@@ -65,13 +102,23 @@ export async function getClaimConditionForUser(
       active: isInFandfFree && Number(activeConditionId) === CLAIM_CONDITION_IDS.FANDF_FREE,
     });
     
-    // F&F Discounted condition (ID 2)
-    const fandfDiscountedCondition = await publicClient.readContract({
-      address: CONTRACT_ADDRESS as `0x${string}`,
-      abi: CONTRACT_ABI,
-      functionName: 'getClaimConditionById',
-      args: [BigInt(CLAIM_CONDITION_IDS.FANDF_DISCOUNTED)],
-    });
+    // F&F Discounted condition (ID 2) - with error handling
+    let fandfDiscountedCondition;
+    try {
+      fandfDiscountedCondition = await publicClient.readContract({
+        address: CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI,
+        functionName: 'getClaimConditionById',
+        args: [BigInt(CLAIM_CONDITION_IDS.FANDF_DISCOUNTED)],
+      });
+    } catch (error: any) {
+      if (error?.message?.includes('429') || error?.message?.includes('rate limit')) {
+        console.warn('Rate limited, skipping F&F Discounted condition check');
+        fandfDiscountedCondition = { pricePerToken: parseEther('0.002'), quantityLimitPerWallet: 15n, merkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000' };
+      } else {
+        throw error;
+      }
+    }
     const isInFandfDiscounted = fandfDiscountedList.some(
       e => e.address.toLowerCase() === userAddress.toLowerCase()
     );

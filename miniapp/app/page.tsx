@@ -22,9 +22,14 @@ export default function Home() {
   const [fandfDiscountedList, setFandfDiscountedList] = useState<Array<{ address: string; quantity: number }>>([]);
 
   // Create public client for reading contract state
+  // Use environment variable RPC URL or fallback to public endpoint
+  const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(),
+    transport: http(rpcUrl, {
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
   });
 
   useEffect(() => {
