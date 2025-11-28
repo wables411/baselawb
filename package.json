@@ -1,0 +1,19 @@
+{
+  "name": "base-nft-contract-query",
+  "version": "1.0.0",
+  "description": "Query Base NFT contract analytics",
+  "main": "query-contract.js",
+  "type": "module",
+  "scripts": {
+    "start": "node query-contract.js",
+    "generate-merkle": "node scripts/generate-merkle-tree.js",
+    "update-conditions": "node scripts/update-claim-conditions.js",
+    "verify-ipfs": "node scripts/verify-ipfs-pins.js"
+  },
+  "dependencies": {
+    "ethers": "^6.9.0",
+    "dotenv": "^16.3.1",
+    "merkletreejs": "^0.3.11"
+  }
+}
+

@@ -1,0 +1,12 @@
+[build]
+  command = "cd miniapp && npm install && npm run build"
+  publish = "miniapp/.next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
