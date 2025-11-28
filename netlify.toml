@@ -1,12 +1,11 @@
 [build]
-  command = "cd miniapp && npm install && npm run build"
-  publish = "miniapp/.next"
+  base = "miniapp"
+  command = "npm install && npm run build"
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
