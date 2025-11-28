@@ -45,13 +45,15 @@ async function checkCurrentConditions() {
 
     // Check all conditions (try 0-5)
     console.log('📋 All Claim Conditions:');
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       try {
         const cond = await contract.getClaimConditionById(BigInt(i));
         console.log(`\n   Condition ${i}:`);
         console.log(`      Price: ${ethers.formatEther(cond.pricePerToken)} ETH`);
         console.log(`      Quantity Limit: ${cond.quantityLimitPerWallet.toString() === '0' ? 'No limit' : cond.quantityLimitPerWallet.toString()}`);
         console.log(`      Merkle Root: ${cond.merkleRoot}`);
+        console.log(`      Start: ${new Date(Number(cond.startTimestamp) * 1000).toISOString()}`);
+        console.log(`      Metadata: ${cond.metadata || '(empty)'}`);
         console.log(`      Active: ${i === Number(activeConditionId) ? 'YES' : 'No'}`);
       } catch (error) {
         // Condition doesn't exist

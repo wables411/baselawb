@@ -2,20 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { getClaimConditionForUser, getClaimedAmount, getRemainingSupply } from '../lib/claimConditions';
-import { CLAIM_CONDITION_IDS } from '../lib/contract';
 
 interface ClaimStatusProps {
   provider: any;
   userAddress: string | null;
-  fandfFreeList: Array<{ address: string; quantity: number }>;
-  fandfDiscountedList: Array<{ address: string; quantity: number }>;
+  discountedList: Array<{ address: string; quantity: number }>;
 }
 
 export default function ClaimStatus({
   provider,
   userAddress,
-  fandfFreeList,
-  fandfDiscountedList,
+  discountedList,
 }: ClaimStatusProps) {
   const [condition, setCondition] = useState<any>(null);
   const [claimed, setClaimed] = useState<number>(0);
@@ -40,8 +37,7 @@ export default function ClaimStatus({
         const claimCondition = await getClaimConditionForUser(
           provider,
           userAddress,
-          fandfFreeList,
-          fandfDiscountedList
+          discountedList
         );
         setCondition(claimCondition);
 
@@ -61,7 +57,7 @@ export default function ClaimStatus({
     }
 
     loadStatus();
-  }, [provider, userAddress, fandfFreeList, fandfDiscountedList]);
+  }, [provider, userAddress, discountedList]);
 
   if (loading) {
     return <div style={{ padding: '1rem', textAlign: 'center' }}>Loading claim status...</div>;

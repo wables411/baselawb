@@ -101,15 +101,25 @@ async function updateClaimConditions() {
     console.log(`   Max Supply: ${maxSupply.toString()}`);
     console.log(`   Total Minted: ${totalMinted.toString()}`);
     console.log(`   Remaining: ${(maxSupply - totalMinted).toString()}\n`);
+    
+    if (maxSupply === 0n) {
+      const fallback = BigInt(process.env.DEFAULT_MAX_SUPPLY || 10000);
+      console.warn(`⚠️  Contract reports maxTotalSupply=0 (unlimited). Using fallback max supply ${fallback.toString()}.`);
+      maxSupply = fallback;
+    } else if (maxSupply <= totalMinted) {
+      const fallback = totalMinted + BigInt(process.env.DEFAULT_BUFFER || 1000);
+      console.warn(`⚠️  Max supply (${maxSupply.toString()}) <= total minted (${totalMinted.toString()}). Using fallback ${fallback.toString()}.`);
+      maxSupply = fallback;
+    }
+    
   } catch (error) {
     console.warn(`⚠️  Could not fetch max supply, using default`);
-    maxSupply = 32n; // Fallback
+    maxSupply = BigInt(process.env.DEFAULT_MAX_SUPPLY || 10000);
   }
   
   // Generate merkle trees for allowlists
   console.log('🌳 Generating merkle trees...\n');
   
-  let fandfFreeRoot = '0x0000000000000000000000000000000000000000000000000000000000000000';
   let fandfDiscountedRoot = '0x0000000000000000000000000000000000000000000000000000000000000000';
   
   // Helper function to generate merkle tree
@@ -143,40 +153,26 @@ async function updateClaimConditions() {
     return { root, entries };
   }
   
-  // F&F Free allowlist
-  const fandfFreePath = process.env.FANDF_FREE_PATH || 'FandFFree.txt';
-  if (fs.existsSync(fandfFreePath)) {
-    try {
-      const merkleData = generateMerkleTree(fandfFreePath);
-      fandfFreeRoot = merkleData.root;
-      console.log(`✅ F&F Free merkle root: ${fandfFreeRoot} (${merkleData.entries.length} addresses)`);
-    } catch (error) {
-      console.error(`❌ Error generating F&F Free merkle tree:`, error.message);
-      process.exit(1);
-    }
-  } else {
-    console.warn(`⚠️  F&F Free file not found: ${fandfFreePath}`);
-  }
-  
   // F&F Discounted allowlist
   const fandfDiscountedPath = process.env.FANDF_DISCOUNTED_PATH || 'FandFDinscount.csv';
   if (fs.existsSync(fandfDiscountedPath)) {
     try {
       const merkleData = generateMerkleTree(fandfDiscountedPath);
       fandfDiscountedRoot = merkleData.root;
-      console.log(`✅ F&F Discounted merkle root: ${fandfDiscountedRoot} (${merkleData.entries.length} addresses)\n`);
+      console.log(`✅ Discounted merkle root: ${fandfDiscountedRoot} (${merkleData.entries.length} addresses)\n`);
     } catch (error) {
-      console.error(`❌ Error generating F&F Discounted merkle tree:`, error.message);
+      console.error(`❌ Error generating Discounted merkle tree:`, error.message);
       process.exit(1);
     }
   } else {
-    console.warn(`⚠️  F&F Discounted file not found: ${fandfDiscountedPath}\n`);
+    console.warn(`⚠️  Discounted file not found: ${fandfDiscountedPath}\n`);
   }
   
   // Create claim conditions
-  // Order: Public first, then allowlists
+  // Order: Public first, then discounted allowlist
   const now = Math.floor(Date.now() / 1000);
   const startTime = now; // Start immediately
+  const discountStartTime = startTime + 60; // offset to satisfy ordering
   
   const conditions = [
     // 1. Public mint: 0.005 ETH, no limit
@@ -190,33 +186,22 @@ async function updateClaimConditions() {
       metadata: 'Public Mint'
     }),
     
-    // 2. F&F Free: 0 ETH, limit 1 per wallet
+    // 2. Discounted: 0.002 ETH, limit 15 per wallet
     createClaimCondition({
-      startTimestamp: startTime,
-      maxClaimableSupply: maxSupply.toString(),
-      quantityLimitPerWallet: 1,
-      merkleRoot: fandfFreeRoot,
-      pricePerToken: '0',
-      currency: ZERO_ADDRESS,
-      metadata: 'F&F Free'
-    }),
-    
-    // 3. F&F Discounted: 0.002 ETH, limit 15 per wallet
-    createClaimCondition({
-      startTimestamp: startTime,
+      startTimestamp: discountStartTime,
       maxClaimableSupply: maxSupply.toString(),
       quantityLimitPerWallet: 15,
       merkleRoot: fandfDiscountedRoot,
       pricePerToken: '0.002',
       currency: ZERO_ADDRESS,
-      metadata: 'F&F Discounted'
+      metadata: 'Discounted'
     })
   ];
   
   console.log('📋 Claim Conditions to Set:');
   conditions.forEach((condition, index) => {
-    const names = ['Public', 'F&F Free', 'F&F Discounted'];
-    console.log(`\n   ${index + 1}. ${names[index]}:`);
+    const names = ['Public', 'Discounted'];
+    console.log(`\n   ${index + 1}. ${names[index] || `Condition ${index + 1}`}:`);
     console.log(`      Price: ${ethers.formatEther(condition.pricePerToken)} ETH`);
     console.log(`      Quantity Limit: ${condition.quantityLimitPerWallet.toString() === '0' ? 'No limit' : condition.quantityLimitPerWallet.toString()}`);
     console.log(`      Merkle Root: ${condition.merkleRoot === '0x0000000000000000000000000000000000000000000000000000000000000000' ? 'None (Public)' : condition.merkleRoot}`);

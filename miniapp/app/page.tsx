@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 import ClaimStatus from './components/ClaimStatus';
@@ -17,9 +17,8 @@ export default function Home() {
   const [condition, setCondition] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   
-  // Allowlists - in production, load from API/IPFS
-  const [fandfFreeList, setFandfFreeList] = useState<Array<{ address: string; quantity: number }>>([]);
-  const [fandfDiscountedList, setFandfDiscountedList] = useState<Array<{ address: string; quantity: number }>>([]);
+  // Allowlist - in production, load from API/IPFS
+  const [discountedList, setDiscountedList] = useState<Array<{ address: string; quantity: number }>>([]);
 
   // Create public client for reading contract state
   // Use environment variable RPC URL or fallback to public Base RPC (rate limited)
@@ -44,9 +43,8 @@ export default function Home() {
       });
     }
     
-    // Load allowlists (in production, fetch from API)
-    setFandfFreeList([]);
-    setFandfDiscountedList([]);
+    // Load allowlist (in production, fetch from API)
+    setDiscountedList([]);
   }, []);
 
   useEffect(() => {
@@ -62,8 +60,7 @@ export default function Home() {
       const claimCondition = await getClaimConditionForUser(
         publicClient as any,
         userAddress,
-        fandfFreeList,
-        fandfDiscountedList
+        discountedList
       );
       setCondition(claimCondition);
     } catch (error) {
@@ -85,8 +82,7 @@ export default function Home() {
     userAddress: address,
     quantity,
     condition,
-    fandfFreeList,
-    fandfDiscountedList,
+    discountedList,
   }) : [];
 
   const totalPrice = condition ? parseFloat(condition.price) * quantity : 0;
@@ -111,8 +107,7 @@ export default function Home() {
                   <ClaimStatus
                     provider={publicClient as any}
                     userAddress={address}
-                    fandfFreeList={fandfFreeList}
-                    fandfDiscountedList={fandfDiscountedList}
+                    discountedList={discountedList}
                   />
                 </div>
 

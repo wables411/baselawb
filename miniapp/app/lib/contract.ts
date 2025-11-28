@@ -92,7 +92,6 @@ export const CONTRACT_ABI = [
 
 // Claim condition IDs (order matters - matches setClaimConditions order)
 export const CLAIM_CONDITION_IDS = {
-  PUBLIC: 0,
-  FANDF_FREE: 1,
-  FANDF_DISCOUNTED: 2,
+  PUBLIC: 1,
+  DISCOUNTED: 2,
 } as const;

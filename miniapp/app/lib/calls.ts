@@ -1,4 +1,4 @@
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from './contract';
+import { CONTRACT_ADDRESS, CONTRACT_ABI, CLAIM_CONDITION_IDS } from './contract';
 import { generateMerkleProof } from './merkle';
 import { parseEther } from 'viem';
 
@@ -10,12 +10,11 @@ export interface MintCallParams {
     price: string;
     merkleRoot: string;
   };
-  fandfFreeList: Array<{ address: string; quantity: number }>;
-  fandfDiscountedList: Array<{ address: string; quantity: number }>;
+  discountedList: Array<{ address: string; quantity: number }>;
 }
 
 export function createMintCalls(params: MintCallParams) {
-  const { userAddress, quantity, condition, fandfFreeList, fandfDiscountedList } = params;
+  const { userAddress, quantity, condition, discountedList } = params;
 
   // Prepare allowlist proof
   let allowlistProof: {
@@ -36,12 +35,8 @@ export function createMintCalls(params: MintCallParams) {
   } else {
     // Allowlist mint - generate proof
     let allowlist: Array<{ address: string; quantity: number }> = [];
-    if (condition.id === 1) {
-      // F&F Free
-      allowlist = fandfFreeList;
-    } else if (condition.id === 2) {
-      // F&F Discounted
-      allowlist = fandfDiscountedList;
+    if (condition.id === CLAIM_CONDITION_IDS.DISCOUNTED) {
+      allowlist = discountedList;
     }
 
     const entry = allowlist.find(
