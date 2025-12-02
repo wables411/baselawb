@@ -1,107 +1,107 @@
+import { parseEther, type Address } from 'viem';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from './contract';
-import { generateMerkleProof, AllowlistEntry } from './merkle';
-import { parseEther } from 'viem';
+import { generateMerkleProof, type AllowlistEntry } from './merkle';
+import type { ClaimCondition } from './claimConditions';
 
-export interface MintCallParams {
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+
+interface CreateMintCallsParams {
   userAddress: string;
   quantity: number;
-  condition: {
-    id: number;
-    price: string;
-    merkleRoot: string;
-  };
+  condition: ClaimCondition;
   discountedList: AllowlistEntry[];
 }
 
-export function createMintCalls(params: MintCallParams) {
-  const { userAddress, quantity, condition, discountedList } = params;
-
-  const lowerAddress = userAddress.toLowerCase();
-  const entry = discountedList.find(
-    e => e.address.toLowerCase() === lowerAddress
-  ) as (typeof discountedList)[number] | undefined;
-
-  if (entry && quantity > entry.maxClaimable) {
-    throw new Error(`Max claimable per wallet is ${entry.maxClaimable}`);
+/**
+ * Create mint transaction calls for wagmi
+ */
+export function createMintCalls({
+  userAddress,
+  quantity,
+  condition,
+  discountedList,
+}: CreateMintCallsParams): Array<{
+  address: Address;
+  abi: typeof CONTRACT_ABI;
+  functionName: 'claim';
+  args: [
+    Address, // _receiver
+    bigint, // _quantity
+    Address, // _currency
+    bigint, // _pricePerToken
+    {
+      proof: `0x${string}`[];
+      quantityLimitPerWallet: bigint;
+      pricePerToken: bigint;
+      currency: Address;
+    }, // _allowlistProof
+    `0x${string}` // _data
+  ];
+  value: bigint;
+}> {
+  if (!condition || quantity <= 0) {
+    return [];
   }
 
-  // Determine the effective price: use entry.price for discounted users, condition.price for public users
-  const effectivePrice = entry ? entry.price : condition.price;
-  const pricePerToken = parseEther(effectivePrice);
+  const receiver = userAddress.toLowerCase() as Address;
+  const currency = ZERO_ADDRESS;
+  const pricePerToken = parseEther(condition.price);
+  const totalValue = pricePerToken * BigInt(quantity);
 
+  // Prepare allowlist proof
   let allowlistProof: {
-    proof: string[];
+    proof: `0x${string}`[];
     quantityLimitPerWallet: bigint;
     pricePerToken: bigint;
-    currency: string;
+    currency: Address;
   };
 
-  if (entry) {
-    const proof = generateMerkleProof(
-      {
-        address: entry.address,
-        maxClaimable: entry.maxClaimable,
-        price: entry.price,
-        currencyAddress: entry.currencyAddress,
-      },
-      discountedList
+  if (
+    condition.merkleRoot ===
+    '0x0000000000000000000000000000000000000000000000000000000000000000'
+  ) {
+    // Public mint - no proof needed
+    allowlistProof = {
+      proof: [],
+      quantityLimitPerWallet: BigInt(0),
+      pricePerToken,
+      currency,
+    };
+  } else {
+    // Allowlist mint - generate proof
+    const entry = discountedList.find(
+      e => e.address.toLowerCase() === userAddress.toLowerCase()
     );
+
+    if (!entry) {
+      // User not in allowlist, return empty array
+      return [];
+    }
+
+    const proof = generateMerkleProof(entry, discountedList);
 
     allowlistProof = {
       proof,
       quantityLimitPerWallet: BigInt(entry.maxClaimable),
       pricePerToken: parseEther(entry.price),
-      currency: entry.currencyAddress.toLowerCase(),
-    };
-  } else {
-    allowlistProof = {
-      proof: [],
-      quantityLimitPerWallet: 0n,
-      pricePerToken: 0n,
-      currency: '0x0000000000000000000000000000000000000000',
+      currency: (entry.currencyAddress || ZERO_ADDRESS).toLowerCase() as Address,
     };
   }
-
-  // Validate price consistency: _pricePerToken must match allowlistProof.pricePerToken when using allowlist
-  if (entry && allowlistProof.pricePerToken !== pricePerToken) {
-    throw new Error(
-      `Price mismatch: allowlist price (${entry.price}) does not match effective price (${effectivePrice})`
-    );
-  }
-
-  // Calculate transaction value using the effective price
-  const transactionValue = pricePerToken * BigInt(quantity);
-
-  console.log('Mint call details:', {
-    userAddress: lowerAddress,
-    quantity,
-    effectivePrice,
-    pricePerToken: pricePerToken.toString(),
-    allowlistProofPrice: allowlistProof.pricePerToken.toString(),
-    transactionValue: transactionValue.toString(),
-    isDiscounted: Boolean(entry),
-  });
 
   return [
     {
-      address: CONTRACT_ADDRESS as `0x${string}`,
+      address: CONTRACT_ADDRESS as Address,
       abi: CONTRACT_ABI,
-      functionName: 'claim',
+      functionName: 'claim' as const,
       args: [
-        userAddress as `0x${string}`,
+        receiver,
         BigInt(quantity),
-        '0x0000000000000000000000000000000000000000' as `0x${string}`,
+        currency,
         pricePerToken,
-        [
-          allowlistProof.proof,
-          allowlistProof.quantityLimitPerWallet,
-          allowlistProof.pricePerToken,
-          allowlistProof.currency as `0x${string}`,
-        ],
+        allowlistProof,
         '0x' as `0x${string}`,
       ],
-      value: transactionValue,
+      value: totalValue,
     },
   ];
 }
-
