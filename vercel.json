@@ -2,6 +2,14 @@
   "buildCommand": "cd miniapp && npm install && npm run build",
   "outputDirectory": "miniapp/.next",
   "installCommand": "cd miniapp && npm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "functions": {
+    "miniapp/app/**/*.ts": {
+      "runtime": "nodejs24.x"
+    },
+    "miniapp/app/**/*.tsx": {
+      "runtime": "nodejs24.x"
+    }
+  }
 }
 
