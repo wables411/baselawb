@@ -82,8 +82,8 @@ export default function Home() {
   return (
     <main className="miniapp-container">
       <div className="miniapp-content">
-        <h1>Base NFT Mint</h1>
-        <p className="subtitle">Mint your NFT on Base</p>
+        <h1>MINT ASCII LAWBSTERS</h1>
+        <p className="subtitle">FOR THE LAWB OF THE GAME</p>
 
         <div className="wallet-section">
           <ConnectButton />
