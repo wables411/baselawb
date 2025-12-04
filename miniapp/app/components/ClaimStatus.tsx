@@ -2,18 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { getClaimConditionForUser, getClaimedAmount, getRemainingSupply } from '../lib/claimConditions';
-import type { AllowlistEntry } from '../lib/merkle';
 
 interface ClaimStatusProps {
   provider: any;
   userAddress: string | null;
-  discountedList: AllowlistEntry[];
 }
 
 export default function ClaimStatus({
   provider,
   userAddress,
-  discountedList,
 }: ClaimStatusProps) {
   const [condition, setCondition] = useState<any>(null);
   const [claimed, setClaimed] = useState<number>(0);
@@ -37,8 +34,7 @@ export default function ClaimStatus({
         
         const claimCondition = await getClaimConditionForUser(
           provider,
-          userAddress,
-          discountedList
+          userAddress
         );
         setCondition(claimCondition);
 
@@ -58,7 +54,7 @@ export default function ClaimStatus({
     }
 
     loadStatus();
-  }, [provider, userAddress, discountedList]);
+  }, [provider, userAddress]);
 
   if (loading) {
     return <div style={{ padding: '1rem', textAlign: 'center' }}>Loading claim status...</div>;
@@ -83,13 +79,8 @@ export default function ClaimStatus({
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ fontWeight: 'bold' }}>Price:</span>
-          <span>{condition.price} ETH</span>
+          <span>Free</span>
         </div>
-        {condition.isDiscounted && (
-          <div style={{ padding: '0.5rem', background: '#e3f2fd', borderRadius: '4px', color: '#1565c0' }}>
-            Discounted pricing applied to your wallet
-          </div>
-        )}
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ fontWeight: 'bold' }}>Claimed:</span>
           <span>{claimed} / {condition.quantityLimit === 0 ? '∞' : condition.quantityLimit}</span>

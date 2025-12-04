@@ -1,6 +1,5 @@
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from './contract';
 import { formatEther } from 'viem';
-import type { AllowlistEntry } from './merkle';
 
 export interface ClaimCondition {
   id: number;
@@ -14,11 +13,11 @@ export interface ClaimCondition {
 
 /**
  * Determine which claim condition applies to a user
+ * All mints are now free (0 ETH)
  */
 export async function getClaimConditionForUser(
   publicClient: any,
-  userAddress: string,
-  discountedList: AllowlistEntry[]
+  userAddress: string
 ): Promise<ClaimCondition | null> {
   try {
     const activeConditionId = await publicClient.readContract({
@@ -34,24 +33,16 @@ export async function getClaimConditionForUser(
       args: [activeConditionId],
     });
     const publicPrice = formatEther(publicCondition.pricePerToken as bigint);
-    
-    const discountedEntry = discountedList.find(
-      entry => entry.address.toLowerCase() === userAddress.toLowerCase()
-    );
-    
-    const effectivePrice = discountedEntry ? discountedEntry.price : publicPrice;
-    const quantityLimit = discountedEntry
-      ? discountedEntry.maxClaimable
-      : Number(publicCondition.quantityLimitPerWallet) || 0;
+    const quantityLimit = Number(publicCondition.quantityLimitPerWallet) || 0;
     
     return {
       id: Number(activeConditionId),
-      name: discountedEntry ? 'Discounted' : 'Public Mint',
-      price: effectivePrice,
+      name: 'Free Mint',
+      price: publicPrice, // Will be "0" from contract
       quantityLimit,
       merkleRoot: publicCondition.merkleRoot,
       active: true,
-      isDiscounted: Boolean(discountedEntry),
+      isDiscounted: false,
     };
     
   } catch (error) {

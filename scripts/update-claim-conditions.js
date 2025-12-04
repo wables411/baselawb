@@ -142,15 +142,15 @@ async function updateClaimConditions() {
   const startTime = now; // Start immediately
   
   const conditions = [
-    // Public mint with discounted overrides: 0.005 ETH default, overrides handled via allowlist proof
+    // Free mint for everyone: 0 ETH, max 3 per wallet
     createClaimCondition({
       startTimestamp: startTime,
       maxClaimableSupply: maxSupply.toString(),
-      quantityLimitPerWallet: 0, // 0 = no limit (overrides handled by allowlist proof)
-      merkleRoot: snapshotRoot,
-      pricePerToken: '0.005',
+      quantityLimitPerWallet: 3, // Max 3 NFTs per wallet
+      merkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000', // No allowlist needed
+      pricePerToken: '0', // Free mint
       currency: ZERO_ADDRESS, // ETH
-      metadata: snapshotRoot === ZERO_ADDRESS ? 'Public Mint' : 'Public Mint + Discounted'
+      metadata: 'Free Mint - 3 per wallet'
     })
   ];
   

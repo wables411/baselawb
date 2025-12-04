@@ -10,19 +10,12 @@ import { createMintCalls } from './lib/calls';
 import { getClaimConditionForUser } from './lib/claimConditions';
 import { createPublicClient, http } from 'viem';
 import { base } from 'wagmi/chains';
-import discountedAllowlist from './lib/discountedAllowlist.json';
 
 export default function Home() {
   const { address, isConnected } = useAccount();
   const [quantity, setQuantity] = useState<number>(1);
   const [condition, setCondition] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const discountedList = discountedAllowlist as Array<{
-    address: string;
-    maxClaimable: number;
-    price: string;
-    currencyAddress: string;
-  }>;
 
   // Create public client for reading contract state
   // Use environment variable RPC URL or fallback to public Base RPC (rate limited)
@@ -60,8 +53,7 @@ export default function Home() {
     try {
       const claimCondition = await getClaimConditionForUser(
         publicClient as any,
-        userAddress,
-        discountedList
+        userAddress
       );
       setCondition(claimCondition);
     } catch (error) {
@@ -78,15 +70,14 @@ export default function Home() {
     }
   }
 
-  // Prepare transaction calls for OnchainKit
+  // Prepare transaction calls for wagmi
   const calls = condition && address ? createMintCalls({
     userAddress: address,
     quantity,
     condition,
-    discountedList,
   }) : [];
 
-  const totalPrice = condition ? parseFloat(condition.price) * quantity : 0;
+  const totalPrice = 0; // Free mint
 
   return (
     <main className="miniapp-container">
@@ -108,7 +99,6 @@ export default function Home() {
                   <ClaimStatus
                     provider={publicClient as any}
                     userAddress={address}
-                    discountedList={discountedList}
                   />
                 </div>
 
@@ -136,7 +126,7 @@ export default function Home() {
 
                     {condition && (
                       <div className="mint-price">
-                        Total: {totalPrice.toFixed(6)} ETH
+                        Free Mint
                       </div>
                     )}
                   </div>

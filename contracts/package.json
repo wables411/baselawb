@@ -1,0 +1,17 @@
+{
+  "name": "nft-discount-wrapper",
+  "version": "1.0.0",
+  "description": "Wrapper contract for NFT ownership-based discounts",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js --network base",
+    "verify": "hardhat verify --network base"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.19.0"
+  }
+}
+
+

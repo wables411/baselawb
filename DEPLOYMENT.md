@@ -101,3 +101,4 @@ The build should complete without errors. Warnings about `@react-native-async-st
 - Verify `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` is set correctly
 - Get project ID from [WalletConnect Cloud](https://cloud.walletconnect.com)
 
+

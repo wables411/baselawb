@@ -1,6 +1,5 @@
 import { parseEther, type Address } from 'viem';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from './contract';
-import { generateMerkleProof, type AllowlistEntry } from './merkle';
 import type { ClaimCondition } from './claimConditions';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
@@ -9,17 +8,16 @@ interface CreateMintCallsParams {
   userAddress: string;
   quantity: number;
   condition: ClaimCondition;
-  discountedList: AllowlistEntry[];
 }
 
 /**
  * Create mint transaction calls for wagmi
+ * Free mint - no ETH sent, no Merkle proof needed
  */
 export function createMintCalls({
   userAddress,
   quantity,
   condition,
-  discountedList,
 }: CreateMintCallsParams): Array<{
   address: Address;
   abi: typeof CONTRACT_ABI;
@@ -45,48 +43,16 @@ export function createMintCalls({
 
   const receiver = userAddress.toLowerCase() as Address;
   const currency = ZERO_ADDRESS;
-  const pricePerToken = parseEther(condition.price);
-  const totalValue = pricePerToken * BigInt(quantity);
+  const pricePerToken = parseEther(condition.price); // Will be 0 ETH
+  const totalValue = 0n; // No ETH sent for free mint
 
-  // Prepare allowlist proof
-  let allowlistProof: {
-    proof: `0x${string}`[];
-    quantityLimitPerWallet: bigint;
-    pricePerToken: bigint;
-    currency: Address;
+  // Free mint with empty proof (no Merkle proof = lower gas!)
+  const allowlistProof = {
+    proof: [], // Empty proof = public mint
+    quantityLimitPerWallet: BigInt(0), // No limit
+    pricePerToken, // 0 ETH
+    currency,
   };
-
-  if (
-    condition.merkleRoot ===
-    '0x0000000000000000000000000000000000000000000000000000000000000000'
-  ) {
-    // Public mint - no proof needed
-    allowlistProof = {
-      proof: [],
-      quantityLimitPerWallet: BigInt(0),
-      pricePerToken,
-      currency,
-    };
-  } else {
-    // Allowlist mint - generate proof
-    const entry = discountedList.find(
-      e => e.address.toLowerCase() === userAddress.toLowerCase()
-    );
-
-    if (!entry) {
-      // User not in allowlist, return empty array
-      return [];
-    }
-
-    const proof = generateMerkleProof(entry, discountedList);
-
-    allowlistProof = {
-      proof,
-      quantityLimitPerWallet: BigInt(entry.maxClaimable),
-      pricePerToken: parseEther(entry.price),
-      currency: (entry.currencyAddress || ZERO_ADDRESS).toLowerCase() as Address,
-    };
-  }
 
   return [
     {
@@ -101,7 +67,7 @@ export function createMintCalls({
         allowlistProof,
         '0x' as `0x${string}`,
       ],
-      value: totalValue,
+      value: totalValue, // 0 ETH
     },
   ];
 }
